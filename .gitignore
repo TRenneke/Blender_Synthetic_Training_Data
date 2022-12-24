@@ -1,0 +1,6 @@
+*.blend*
+TEST
+dataset
+datasets
+*.blend1
+__pycache__/
