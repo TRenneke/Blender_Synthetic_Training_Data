@@ -1,0 +1,11 @@
+Cube:
+  type: Object
+  names: "Cube.*"
+  
+  location: Uniform((-1, -1, -1), (1, 1, 1))
+  roation: Uniform((-180, -180, -180), (180, 180, 180))
+  scale: Uniform((0.1, 0.1, 0.1), (2, 2, 2))
+  material: Choice([Material.001, Material.002])
+  color: HSV(Uniform(0, 1), Uniform(0, 1), 1)
+  CustomProperty1: Choice([0, 1, 2, 3 ,4])
+global1: "Test"
