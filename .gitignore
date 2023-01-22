@@ -4,3 +4,4 @@ dataset
 datasets
 *.blend1
 __pycache__/
+.vscode/

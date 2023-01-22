@@ -1,0 +1,9 @@
+Group1:
+  objects: Select([Cube])
+  annotate: True
+  color: HSV(Uniform((0, 0, 0, 1), (1, 1, 1, 1)))
+  location: Uniform((-1, -1, -1), (1, 1, 1))
+  rotation: Uniform((0, 0, 0), (360, 360, 360))
+Camera:
+  objects: Select([Camera])
+  annotate: True
