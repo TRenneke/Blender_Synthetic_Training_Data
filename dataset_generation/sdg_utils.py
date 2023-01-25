@@ -95,3 +95,41 @@ def generate_annotations(objs: list[bpy.types.Object]) -> dict:
         else:
             r["objects"].append(generate_obj_annotation(obj))
     return r
+def getAppendType(str):
+    if str == "Object":
+        return bpy.data.objects
+    if str == "Material":
+        return bpy.data.materials
+    if str == "Collection":
+        return bpy.data.collections
+def getFreeName(objects: dict, name: str):
+    i = 0
+    n = name
+    while n in objects:
+        i += 1
+        n = name + ".{:0>3}".format(i)
+    return n
+
+def append_object(filepath: str):
+    p, obj_name = os.path.split(filepath)
+    p, obj_type = os.path.split(p)
+    assert p.endswith(".blend")
+    # Append the object from the file
+    name = getFreeName(getAppendType(obj_type), obj_name)
+    with bpy.data.libraries.load(p) as (data_from, data_to):
+        if obj_type == "Object":
+            data_to.objects = [obj_name]
+        if obj_type == "Material":
+            data_to.materials = [obj_name]
+        if obj_type == "Collection":
+            data_to.collections = [obj_name]
+    if obj_type == "Object":
+        obj = data_to.objects[0]
+        bpy.context.scene.collection.objects.link(obj)
+    if obj_type == "Material":
+        return data_to.materials[0]
+    if obj_type == "Collection":
+        obj = data_to.collections[0]
+        bpy.context.scene.collection.children.link(obj)
+        return obj
+    return None

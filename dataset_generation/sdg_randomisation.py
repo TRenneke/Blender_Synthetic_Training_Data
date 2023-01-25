@@ -15,7 +15,7 @@ from typing import Union
 def file_parser(val: str) -> Union[str, list] :
     return val
 def material_parser(val: str) -> bpy.types.Material:
-    return bpy.data.materials[val]
+    return bpy.data.materials[val]     
 class SetValue():
     def __init__(self, attr: str, val: sdg_sampler.Sampler) -> None:
         self.attr = attr
@@ -30,18 +30,53 @@ class SetValue():
                 setattr(obj, self.attr, s)
             else:
                 self.__call__(o)
-    def getParser(parameter: id, resultType):
+    def getParser(parameter: int, resultType):
         return resultType
     def setValFactory(attr):
-        return functools.partial(SetValue, attr)
+        return functools.partial(SetValue, attr)       
 
+#cam.location = [0, 0, 5]
+#cam.keyframe_insert(data_path="location", frame=1)
+#randPosition(cam, [(-0.5, 0.5), (-0.5, 0.5), (1.5, 9.5)])
+#cam.keyframe_insert(data_path="location", frame=2)
+#cam.location = [0, 0, 5]
+def aplyVelocity(val, vel):
+        return tuple([x + y for x, y in zip(val, vel)])
+    
+class SetVelocity():
+    def __init__(self, attr: str, val: sdg_sampler.Sampler) -> None:
+        self.attr = attr
+        self.val = val
+    def setVel(self, velocity, obj: bpy.types.Object):
+        cur_val = getattr(obj, self.attr)
+        offset_val = aplyVelocity(cur_val, velocity)
+        setattr(obj, self.attr, offset_val)
+        obj.keyframe_insert(data_path=self.attr, frame=bpy.context.scene.frame_current+1)
+        setattr(obj, self.attr, cur_val)
+        obj.keyframe_insert(data_path=self.attr, frame=bpy.context.scene.frame_current)
 
+    def __call__(self, obj: bpy.types.Object) -> None:
+        s = self.val()
+        if not isinstance(obj, list):
+            
+            return
+        for o in obj:
+            if not isinstance(o, list):
+                setattr(obj, self.attr, s)
+            else:
+                self.__call__(o)
+    def getParser(parameter: int, resultType):
+        return resultType
+    def setVelFactory(attr):
+        return functools.partial(SetValue, attr)       
+    
 
 obj_properties = {"location": (float, SetValue.setValFactory("location")),
                   "rotation": (float, SetValue.setValFactory("rotation_euler")),
                   "scale": (float, SetValue.setValFactory("scale")),
                   "color": (float, SetValue.setValFactory("color")),
-                  "material": (material_parser, SetValue.setValFactory("active_material"))}
+                  "material": (material_parser, SetValue.setValFactory("active_material")),
+                  "velocity": (float, SetVelocity.setVelFactory("location"))}
 
 obj_selectors = set(["objects"])
 
@@ -71,10 +106,7 @@ def sampler_from_string(s: str, parser) -> sdg_sampler.Sampler:
         
         # Get the class object using its name
         class_object: sdg_sampler.Sampler = sdg_sampler.Samplers[class_name + "Sampler"]
-        values = (sampler_from_string(x.strip(), class_object.getParser(i, parser)) for i, x in  enumerate(split_string(values_string)))
-        
-        
-
+        values = (sampler_from_string(x.strip(), class_object.getParser(i, parser)) for i, x in  enumerate(split_string(values_string)) if len(x.strip()) > 0)
         # Create and return an instance of the class, passing in the values
         return class_object(*values)
     else:
@@ -118,6 +150,7 @@ class ObjectGroup():
             logging.debug(f"Processing property: {k}")
             if k == "annotate":
                 annotate = bool(v)
+                continue
             if k == "type":
                 continue
             if k in obj_properties:
@@ -134,18 +167,27 @@ class ObjectGroup():
                 print(f"unknown Property: {k}")
                 continue
         return ObjectGroup(result_exec, result_select, result_subgroups, annotate)
+    def reset(self):
+        self.objects = None
+        for selector in self.select:
+            selector.reset()
+        for sg in self.subGroups:
+            sg.reset()
     def __call__(self, objects) -> list[bpy.types.Object]:
-        self._getObjects(objects)
+        self.reset()
+        self.objects =  self.getObjects(objects)
         for ex in self.exec:
             for obj in self.objects :
                 ex(obj)
         for sg in self.subGroups:
-            sg(self.objects )
-    def _getObjects(self, objects):
-        objs = []
-        for selector in self.select:
-            objs = objs + selector(objects)
-        self.objects = objs
+            sg(self.objects)
+    def getObjects(self, objects):
+        if self.objects is None:
+            objs = []
+            for selector in self.select:
+                objs = objs + selector(objects)
+            return objs
+        return self.objects
 class Randomization():
     def __init__(self, groups: dict[str, ObjectGroup]) -> None:
         self.groups = groups
@@ -166,6 +208,8 @@ class Randomization():
             if v.annotate:
                 self.annotatedObjects += v.objects
     def reset(self):
-        pass
+        for k, v in self.groups.items():
+            print(f"Resetting group: {k}")
+            v.reset()
     def getAnnotatedObjects(self):
         return self.annotatedObjects
