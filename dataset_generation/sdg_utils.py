@@ -123,6 +123,7 @@ def append_object(filepath: str):
             data_to.materials = [obj_name]
         if obj_type == "Collection":
             data_to.collections = [obj_name]
+    print(data_to.materials)
     if obj_type == "Object":
         obj = data_to.objects[0]
         bpy.context.scene.collection.objects.link(obj)

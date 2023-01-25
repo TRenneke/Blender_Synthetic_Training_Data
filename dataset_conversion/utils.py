@@ -47,5 +47,7 @@ def generate_relation_graph(objects: list[dict]) -> dict[str, list[str]]:
     return r
 def get_all_anchestors(rel_graph: dict[str, list[str]], obj_name: str) -> list[str]:
     assert not rel_graph is None
-    return [obj_name] + [get_all_anchestors(child) for child in rel_graph[obj_name]]
+    if not obj_name in rel_graph:
+        return obj_name
+    return [obj_name] + [get_all_anchestors(rel_graph, child) for child in rel_graph[obj_name]]
     

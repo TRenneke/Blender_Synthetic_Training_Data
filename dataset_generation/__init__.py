@@ -21,7 +21,9 @@ else:
 import bpy
 from bpy.app.handlers import persistent
 import os
+import random
 
+backup_path = "temp.blend"
 default_context = None
 randomisation: sdg_randomisation.Randomization = None
 def getDatasetPath(scene: bpy.types.Scene):
@@ -32,18 +34,24 @@ def runRandomisation(scene):
         randomisation = sdg_randomisation.Randomization.from_file(scene.randomisation_file)
         print("Loaded randomisation file:", scene.randomisation_file)
     randomisation(bpy.data.objects.values())
-def resetRandomisation():
-    if not randomisation is None:
-        print("Resetting randomisation!")
-        randomisation.reset()
-    else:
-        print("No randomisation to reset!")
+def createDataset(scene: bpy.types.Scene):
+    start = scene.frame_start
+    end = scene.frame_end
+    for i in range(start, end+1):
+        scene.frame_current = i
+        scene.frame_start = i
+        scene.frame_end = i
+        random.seed = i    
+        runRandomisation(scene)
+        sdg_utils.save_annotations(i, randomisation.getAnnotatedObjects(), getDatasetPath(scene))
+        bpy.ops.render.render(animation=True)
+    scene.frame_start = start
+    scene.frame_end = end
+        
+
 @persistent
-def onFrameChangePost(scene: bpy.types.Scene):
-    # Randomize the Scene
-    runRandomisation(scene)
-    # Store Scene Data the Scene
-    sdg_utils.save_annotations(scene.frame_current, randomisation.getAnnotatedObjects(), getDatasetPath(scene))
+def resetRandomisation():
+    bpy.ops.wm.open_mainfile(filepath=bpy.data.filepath)
 
 
 
@@ -76,6 +84,9 @@ class SyntheticDataPanel(bpy.types.Panel):
         row.operator("scene.randomize")
         row.operator("scene.reset")
         
+        row = layout.row()
+        row.operator("scene.create")
+        
 class SetupCompositing(bpy.types.Operator):
     """Setup Compositing for Synthetic data generation"""
     bl_idname = "scene.setup_compositing"
@@ -86,12 +97,20 @@ class SetupCompositing(bpy.types.Operator):
         return {'FINISHED'}
 
 class Randomize(bpy.types.Operator):
-    """Setup Compositing for Synthetic data generation"""
+    """Randomize the Szene"""
     bl_idname = "scene.randomize"
     bl_label = "Randomize"
 
     def execute(self, context):
         runRandomisation(context.scene)
+        return {'FINISHED'}
+class Create(bpy.types.Operator):
+    """Create the dataset"""
+    bl_idname = "scene.create"
+    bl_label = "Create Dataset"
+
+    def execute(self, context):
+        createDataset(context.scene)
         return {'FINISHED'}
 
 class Reset(bpy.types.Operator):
@@ -130,8 +149,7 @@ def register():
     bpy.utils.register_class(SetupCompositing)
     bpy.utils.register_class(Randomize)
     bpy.utils.register_class(Reset)
-    
-    bpy.app.handlers.frame_change_pre.append(onFrameChangePost)
+    bpy.utils.register_class(Create)
 def unregister():
     del bpy.types.Scene.randomisation_file
     bpy.utils.unregister_class(SyntheticDataPanel)
@@ -139,7 +157,7 @@ def unregister():
     bpy.utils.unregister_class(SetupCompositing)
     bpy.utils.unregister_class(Randomize)
     bpy.utils.unregister_class(Reset)
-    bpy.app.handlers.frame_change_pre.remove(onFrameChangePost)
+    bpy.utils.unregister_class(Create)
 if __name__ == "__main__":
     register()
 #    unregister()

@@ -27,19 +27,42 @@ class SetValue():
             return
         for o in obj:
             if not isinstance(o, list):
-                setattr(obj, self.attr, s)
+                setattr(o, self.attr, s)
             else:
                 self.__call__(o)
-    def getParser(parameter: int, resultType):
-        return resultType
     def setValFactory(attr):
-        return functools.partial(SetValue, attr)       
+        return functools.partial(SetValue, attr)
+class SetVisible():
+    def __init__(self, val: sdg_sampler.Sampler) -> None:
+        self.val = val
+    def __call__(self, obj: bpy.types.Object) -> None:
+        s = self.val()
+        if not isinstance(obj, list):
+            obj.hide_render = not s
+            obj.hide_viewport = not s
+            return
+        for o in obj:
+            if not isinstance(o, list):
+                o.hide_render = not s
+                o.hide_viewport = not s
+            else:
+                self.__call__(o)
 
-#cam.location = [0, 0, 5]
-#cam.keyframe_insert(data_path="location", frame=1)
-#randPosition(cam, [(-0.5, 0.5), (-0.5, 0.5), (1.5, 9.5)])
-#cam.keyframe_insert(data_path="location", frame=2)
-#cam.location = [0, 0, 5]
+class SetCustomProperty():
+    def __init__(self, attr: str, val: sdg_sampler.Sampler) -> None:
+        self.attr = attr
+        self.val = val
+    def __call__(self, obj: bpy.types.Object) -> None:
+        s = self.val()
+        if not isinstance(obj, list):
+            obj[self.attr] = s
+            return
+        for o in obj:
+            if not isinstance(o, list):
+                o[self.attr] = s
+            else:
+                self.__call__(o)
+
 def aplyVelocity(val, vel):
         return tuple([x + y for x, y in zip(val, vel)])
     
@@ -50,25 +73,25 @@ class SetVelocity():
     def setVel(self, velocity, obj: bpy.types.Object):
         cur_val = getattr(obj, self.attr)
         offset_val = aplyVelocity(cur_val, velocity)
+        
+        obj.keyframe_insert(data_path=self.attr, frame=bpy.context.scene.frame_current)
+        
         setattr(obj, self.attr, offset_val)
         obj.keyframe_insert(data_path=self.attr, frame=bpy.context.scene.frame_current+1)
-        setattr(obj, self.attr, cur_val)
-        obj.keyframe_insert(data_path=self.attr, frame=bpy.context.scene.frame_current)
 
+        
     def __call__(self, obj: bpy.types.Object) -> None:
         s = self.val()
         if not isinstance(obj, list):
-            
+            self.setVel(s, obj)
             return
         for o in obj:
             if not isinstance(o, list):
-                setattr(obj, self.attr, s)
+                self.setVel(s, o)
             else:
                 self.__call__(o)
-    def getParser(parameter: int, resultType):
-        return resultType
     def setVelFactory(attr):
-        return functools.partial(SetValue, attr)       
+        return functools.partial(SetVelocity, attr)       
     
 
 obj_properties = {"location": (float, SetValue.setValFactory("location")),
@@ -76,8 +99,8 @@ obj_properties = {"location": (float, SetValue.setValFactory("location")),
                   "scale": (float, SetValue.setValFactory("scale")),
                   "color": (float, SetValue.setValFactory("color")),
                   "material": (material_parser, SetValue.setValFactory("active_material")),
-                  "velocity": (float, SetVelocity.setVelFactory("location"))}
-
+                  "velocity": (float, SetVelocity.setVelFactory("location")),
+                  "visible": (bool, SetVisible)}
 obj_selectors = set(["objects"])
 
 
@@ -141,7 +164,7 @@ class ObjectGroup():
         self.subGroups = subGroup
         self.annotate = annotate
         self.objects = None
-    def from_dict(group: dict):
+    def from_dict(group: dict, customPropertys):
         result_exec = []
         result_select = []
         result_subgroups = []
@@ -157,48 +180,59 @@ class ObjectGroup():
                 parser, action = obj_properties[k]
                 result_exec.append(action(sampler_from_string(v, parser)))
                 continue
+            elif k in customPropertys:
+                parser = customPropertys[k]
+                action = SetCustomProperty(k, sampler_from_string(v, parser))
+                result_exec.append(action)
+                continue
             if k in obj_selectors:
                 result_select.append(sampler_from_string(v, str))
                 continue
             if isinstance(v, dict):
-                result_exec.append(ObjectGroup.from_dict(v))
+                result_exec.append(ObjectGroup.from_dict(v, customPropertys))
                 continue
             else:
                 print(f"unknown Property: {k}")
                 continue
         return ObjectGroup(result_exec, result_select, result_subgroups, annotate)
-    def reset(self):
-        self.objects = None
-        for selector in self.select:
-            selector.reset()
-        for sg in self.subGroups:
-            sg.reset()
     def __call__(self, objects) -> list[bpy.types.Object]:
-        self.reset()
-        self.objects =  self.getObjects(objects)
+        self.objects = self.getObjects(objects)
         for ex in self.exec:
             for obj in self.objects :
                 ex(obj)
         for sg in self.subGroups:
             sg(self.objects)
     def getObjects(self, objects):
-        if self.objects is None:
-            objs = []
-            for selector in self.select:
-                objs = objs + selector(objects)
-            return objs
-        return self.objects
+        objs = []
+        for selector in self.select:
+            objs = objs + selector(objects)
+        return objs
+def flatten(S):
+    if S == []:
+        return S
+    if isinstance(S[0], list):
+        return flatten(S[0]) + flatten(S[1:])
+    return S[:1] + flatten(S[1:])
+data_type_map = {"str": str, "int": int, "float": float}
 class Randomization():
-    def __init__(self, groups: dict[str, ObjectGroup]) -> None:
+    def __init__(self, groups: dict[str, ObjectGroup], customPropertys = None) -> None:
         self.groups = groups
         self.annotatedObjects = None
+        self.customPropertys = customPropertys
     def from_file(file: str):
         r = {}
         print(f"Loading file: {file}!")
         with open(file, "r") as f:
             data: dict = yaml.safe_load(f)
+            cp = None
+            if "CustomPropertys" in data:
+                cp = data["CustomPropertys"]
+                for k,v in cp.items():
+                    cp[k] = data_type_map[v]
             for k, v in data.items():
-                r[k] = ObjectGroup.from_dict(v)
+                if k == "CustomPropertys":      
+                    continue
+                r[k] = ObjectGroup.from_dict(v, cp)
         return Randomization(r)   
     def __call__(self, objects) -> list[bpy.types.Object]:
         self.annotatedObjects = []
@@ -206,10 +240,6 @@ class Randomization():
             print(f"Running group: {k}")
             v(objects)
             if v.annotate:
-                self.annotatedObjects += v.objects
-    def reset(self):
-        for k, v in self.groups.items():
-            print(f"Resetting group: {k}")
-            v.reset()
+                self.annotatedObjects += flatten(v.objects)
     def getAnnotatedObjects(self):
         return self.annotatedObjects

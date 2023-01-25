@@ -1,19 +1,27 @@
+CustomPropertys: 
+  tex_scale: float
+  tex_offset: float
 #Camera Group needs to be randomized first!
 Camera:
-  objects: Select([Camera])
+  objects: Object([Camera])
   location: (0, 0, 0)
   rotation: (1.570, 0, 0)
-  velocity: Uniform((0, 0, -0.05), (0, 0, 0.05))
+  velocity: Uniform((0, 0, -0.2), (0, 0, 0.2))
   annotate: True
-Group1:
-  objects: Select([Cube])
+Cubes:
+  objects: Object([Cube])
   annotate: True
   color: HSV(Uniform((0, 0, 0, 1), (1, 1, 1, 1)))
   location: CameraLocation(Camera, Uniform((-1, -1, 2), (1, 1, 10)))
   rotation: Uniform((0, 0, 0), (6.283, 6.283, 6.283))
+  tex_scale: Uniform(0.5, 2)
+  tex_offset: Uniform((0, 0), (1, 1))
+  visible: Bool(0.5)
 Pallets:
-  objects: Append(Choice([D:\Programmieren\Blender_Synthetic_Training_Data\scenes\assets.blend\Collection\Pallet], 5))
+  objects: Collection(Pallet)
+  annotate: True
   PalletOrigins: 
     objects: Root()
-    location: CameraLocation(Camera, Uniform((-1, -1, 2), (1, 1, 10))) 
+    location: CameraLocation(Camera, Uniform((-1, -1, 2), (1, 1, 10)))
+    rotation: Uniform((0, 0, 0), (6.283, 6.283, 6.283))
   

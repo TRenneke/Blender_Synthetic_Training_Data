@@ -44,6 +44,13 @@ class ChoiceSampler(Sampler):
         if parameter == 1:
             return int
         return resultType
+class BoolSampler(Sampler):
+    def __init__(self, value: Sampler) -> None:
+        self.value = value
+    def __call__(self):
+        return random.random() < self.value()
+    def getParser(parameter: int, resultType):
+        return float
 
         
 class HSVSampler(Sampler):
@@ -95,39 +102,35 @@ class CameraLocationSampler():
             return str
         return float
 #### ------------------------------------ Object Sampler ------------------------------------ #### 
+def getObjects(objects, names):
+    if isinstance(objects, list):
+        return [getObjects(obj, names) for obj in objects if obj.name.split(".")[0] in names]
+    return objects
 class ObjectSampler(Sampler):
-    def reset(self):
-        pass
-class SelectSampler(Sampler):
     def __init__(self, val: Sampler) -> None:
         self.val = val
     def __call__(self, objects: list[bpy.types.Object]) -> list[bpy.types.Object]:
         s = self.val()
         if not isinstance(s, list):
             s = [s]
-        return [obj for obj in objects if obj.name.split(".")[0] in s]
+        return getObjects(objects, s)
     def getParser(parameter: id, resultType):
         return resultType
-    def reset(self):
-        return
+class CollectionSampler(Sampler):
+    def __init__(self, val: Sampler) -> None:
+        self.val = val
+    def __call__(self, objects: list[bpy.types.Object]) -> list[bpy.types.Object]:
+        s = self.val()
+        if not isinstance(s, list):
+            s = [s]
+        return [col.all_objects.values() for col in bpy.data.collections if col.name.split(".")[0] in s]
+    def getParser(parameter: id, resultType):
+        return resultType
 def unpackCollection(obj):
     if not isinstance(obj, bpy.types.Collection):
         return obj
     else: 
         return obj.all_objects.values()
-def deleteCollection(col):
-    for c in col.children:
-        deleteCollection(c)
-    for o in col.objects:
-        bpy.data.objects.remove(o)
-    bpy.data.collections.remove(col)
-def cleanMaterials():
-    for mat in bpy.data.materials.values():
-        if mat.users == 0:
-            bpy.data.materials.remove(mat)
-    for tex in bpy.data.textures.values():
-        if tex.users == 0:
-            bpy.data.textures.remove(tex)
 class AppendSampler(Sampler):
     def __init__(self, val: Sampler) -> None:
         self.val = val
@@ -141,26 +144,6 @@ class AppendSampler(Sampler):
         return [unpackCollection(x) for x in self.lastObjs]
     def getParser(parameter: id, resultType):
         return resultType
-    def reset(self):
-        if self.lastObjs is None:
-            return
-        for obj in self.lastObjs:
-            if isinstance(obj, bpy.types.Collection):
-                print("removing collection:", obj.name)
-#               This Leads to a crash?
-                deleteCollection(obj)
-                cleanMaterials()
-                #for o in obj.objects:
-                #    bpy.data.objects.remove(o, do_unlink=True)
-                #for o in obj.children    
-                #bpy.data.collections.remove(obj, do_unlink=True)
-            elif isinstance(obj, bpy.types.Object):
-                print("removing object:", obj.name)
-                bpy.data.objects.remove(obj, do_unlink=True)
-            elif isinstance(obj, bpy.types.Material):
-                print("removing material:", obj.name)                
-                bpy.data.materials.remove(obj, do_unlink=True)
-        self.lastObjs = None
 class RootSampler():
     def __init__(self) -> None:
         pass
@@ -168,8 +151,6 @@ class RootSampler():
         if isinstance(objects, list):
             return [self.__call__(objs) for objs in objects if isinstance(objs, list) or objs.parent is None]
         return objects
-    def reset(self):
-        pass
     def getParser(parameter: id, resultType):
         return resultType
 Samplers: dict = None
@@ -181,10 +162,11 @@ def _registerAllSamplers():
     registerSampler(ValueSampler)
     registerSampler(HSVSampler)
     registerSampler(UniformSampler)
-    registerSampler(SelectSampler)
-    registerSampler(AppendSampler)
+    registerSampler(ObjectSampler)
     registerSampler(RootSampler)
     registerSampler(CameraLocationSampler)
+    registerSampler(BoolSampler)
+    registerSampler(CollectionSampler)
 if Samplers is None:
     Samplers = {}
     _registerAllSamplers()
