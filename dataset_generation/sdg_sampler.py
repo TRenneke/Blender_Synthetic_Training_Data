@@ -33,11 +33,11 @@ class ValueSampler(Sampler):
         return resultType
 
 class ChoiceSampler(Sampler):
-    def __init__(self, values: list[Sampler], ammount: ValueSampler(1)) -> None:
+    def __init__(self, values: list[Sampler], ammount: Sampler =  ValueSampler(1)) -> None:
         self.values = values
         self.ammount = ammount
     def __call__(self):
-        if self.ammount == 1:
+        if self.ammount() == 1:
             return random.choice(self.values()) 
         return [random.choice(self.values()) for i in range(self.ammount())]
     def getParser(parameter: int, resultType):

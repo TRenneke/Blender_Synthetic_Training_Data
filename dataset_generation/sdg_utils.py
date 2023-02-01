@@ -134,3 +134,6 @@ def append_object(filepath: str):
         bpy.context.scene.collection.children.link(obj)
         return obj
     return None
+
+def getLabelObjects():
+    return [obj for obj in bpy.data.objects.values() if "label" in obj and obj["label"] and not obj.hide_render]

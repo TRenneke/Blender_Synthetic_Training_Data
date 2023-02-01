@@ -33,7 +33,7 @@ def runRandomisation(scene):
     if randomisation is None:
         randomisation = sdg_randomisation.Randomization.from_file(scene.randomisation_file)
         print("Loaded randomisation file:", scene.randomisation_file)
-    randomisation(bpy.data.objects.values())
+    randomisation(None)
 def createDataset(scene: bpy.types.Scene):
     start = scene.frame_start
     end = scene.frame_end
@@ -43,11 +43,10 @@ def createDataset(scene: bpy.types.Scene):
         scene.frame_end = i
         random.seed = i    
         runRandomisation(scene)
-        sdg_utils.save_annotations(i, randomisation.getAnnotatedObjects(), getDatasetPath(scene))
+        sdg_utils.save_annotations(i, sdg_utils.getLabelObjects(), getDatasetPath(scene))
         bpy.ops.render.render(animation=True)
     scene.frame_start = start
     scene.frame_end = end
-        
 
 @persistent
 def resetRandomisation():

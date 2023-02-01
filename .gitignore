@@ -5,3 +5,5 @@ datasets
 *.blend1
 __pycache__/
 .vscode/
+material_loader.py
+scenes/

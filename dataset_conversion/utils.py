@@ -16,8 +16,6 @@ def get_segmentation_mask(objects: list[str], cryptos: list[np.ndarray]) -> np.n
     for i in range(len(cryptos) * 2):
         cm = i // 2
         c = i % 2
-        print(cm)
-        print(c)
         for hash in hashes:
             mask[:, :, 0] += (hash == cryptos[cm][:, :, c]) * cryptos[cm][:, :, c + 1]
     return mask

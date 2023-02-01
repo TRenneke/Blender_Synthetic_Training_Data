@@ -15,7 +15,7 @@ from typing import Union
 def file_parser(val: str) -> Union[str, list] :
     return val
 def material_parser(val: str) -> bpy.types.Material:
-    return bpy.data.materials[val]     
+    return bpy.data.materials[val]
 class SetValue():
     def __init__(self, attr: str, val: sdg_sampler.Sampler) -> None:
         self.attr = attr
@@ -32,6 +32,38 @@ class SetValue():
                 self.__call__(o)
     def setValFactory(attr):
         return functools.partial(SetValue, attr)
+class SetDataValue():
+    def __init__(self, attr: str, val: sdg_sampler.Sampler) -> None:
+        self.attr = attr
+        self.val = val
+    def __call__(self, obj: bpy.types.Object) -> None:
+        s = self.val()
+        if not isinstance(obj, list):
+            setattr(obj.data, self.attr, s)
+            return
+        for o in obj:
+            if not isinstance(o, list):
+                setattr(o.data, self.attr, s)
+            else:
+                self.__call__(o)
+    def setDataValFactory(attr):
+        return functools.partial(SetDataValue, attr)
+
+class SetImgPath():
+    def __init__(self, val: sdg_sampler.Sampler) -> None:
+        self.val = val
+    def __call__(self, obj: bpy.types.Image) -> None:
+        s = self.val()
+        if not isinstance(obj, list):
+            obj.filepath = s
+            obj.reload()
+            return
+        for o in obj:
+            if not isinstance(o, list):
+                o.filepath = s
+                o.reload()
+            else:
+                self.__call__(o)
 class SetVisible():
     def __init__(self, val: sdg_sampler.Sampler) -> None:
         self.val = val
@@ -100,9 +132,13 @@ obj_properties = {"location": (float, SetValue.setValFactory("location")),
                   "color": (float, SetValue.setValFactory("color")),
                   "material": (material_parser, SetValue.setValFactory("active_material")),
                   "velocity": (float, SetVelocity.setVelFactory("location")),
-                  "visible": (bool, SetVisible)}
-obj_selectors = set(["objects"])
-
+                  "visible": (bool, SetVisible),
+                  "energy": (float, SetDataValue.setDataValFactory("energy")),
+                  "light_color": (float, SetDataValue.setDataValFactory("color"))}
+image_properties = {"path": (str, SetImgPath)}
+material_properties = {}
+scene_properties = {}
+object_types = {"objects": obj_properties, "images": image_properties, "materials": material_properties, "scenes": scene_properties}
 
 def split_string(s):
     result = []
@@ -121,6 +157,8 @@ def split_string(s):
 
 def sampler_from_string(s: str, parser) -> sdg_sampler.Sampler:
     # Check if the string starts with a class name
+    if not isinstance(s, str):
+        return sdg_sampler.ValueSampler(s)
     if s[0].isupper() and "(" in s:
         # Split the string into two parts: the name of the class and the list of values
         class_name, values_string = s.split("(", 1)
@@ -158,47 +196,56 @@ def parseNames(values: list[str]):
     return
 
 class ObjectGroup():
-    def __init__(self, exec, select, subGroup, annotate) -> None:
+    def __init__(self, exec, select, subGroup, t) -> None:
         self.exec = exec
         self.select = select
         self.subGroups = subGroup
-        self.annotate = annotate
         self.objects = None
-    def from_dict(group: dict, customPropertys):
+        self.type = t
+    def from_dict(group: dict, customPropertys, t = None):
         result_exec = []
         result_select = []
         result_subgroups = []
-        annotate = False
+        #object_type = None
+        actions = {}
+        object_type = None
+        for ot, a in object_types.items():
+            if ot in group:
+                actions = a
+                object_type = ot
+                result_select.append(sampler_from_string(group[ot], str))
+        if t != None and object_type != t:
+            print(f"Subgroup object type is: {object_type} which is unequal to main group object type: {t}")
+            assert False
         for k, v in group.items():
             logging.debug(f"Processing property: {k}")
-            if k == "annotate":
-                annotate = bool(v)
-                continue
-            if k == "type":
-                continue
-            if k in obj_properties:
-                parser, action = obj_properties[k]
+            if k in actions:
+                parser, action = actions[k]
                 result_exec.append(action(sampler_from_string(v, parser)))
                 continue
-            elif k in customPropertys:
+            elif k in customPropertys and object_type == "objects":
                 parser = customPropertys[k]
                 action = SetCustomProperty(k, sampler_from_string(v, parser))
                 result_exec.append(action)
                 continue
-            if k in obj_selectors:
-                result_select.append(sampler_from_string(v, str))
+            if k in object_types:
+                #result_select.append(sampler_from_string(v, str))
                 continue
             if isinstance(v, dict):
-                result_exec.append(ObjectGroup.from_dict(v, customPropertys))
+                result_exec.append(ObjectGroup.from_dict(v, customPropertys, object_type))
                 continue
             else:
                 print(f"unknown Property: {k}")
                 continue
-        return ObjectGroup(result_exec, result_select, result_subgroups, annotate)
-    def __call__(self, objects) -> list[bpy.types.Object]:
+        return ObjectGroup(result_exec, result_select, result_subgroups, object_type)
+    def __call__(self, objects = None) -> list[bpy.types.Object]:
+        if objects is None:
+            objects = self.getBaseDict()
         self.objects = self.getObjects(objects)
+        if self.type == "images":
+            print(self.objects)
         for ex in self.exec:
-            for obj in self.objects :
+            for obj in self.objects:
                 ex(obj)
         for sg in self.subGroups:
             sg(self.objects)
@@ -207,17 +254,25 @@ class ObjectGroup():
         for selector in self.select:
             objs = objs + selector(objects)
         return objs
+    def getBaseDict(self):
+        if self.type == "objects":
+            return bpy.data.objects.values()
+        if self.type == "images":
+            return bpy.data.images.values()
+        if self.type == "materials":
+            return bpy.data.materials.values()
+        
+
 def flatten(S):
     if S == []:
         return S
     if isinstance(S[0], list):
         return flatten(S[0]) + flatten(S[1:])
     return S[:1] + flatten(S[1:])
-data_type_map = {"str": str, "int": int, "float": float}
+data_type_map = {"str": str, "int": int, "float": float, "bool": bool}
 class Randomization():
     def __init__(self, groups: dict[str, ObjectGroup], customPropertys = None) -> None:
         self.groups = groups
-        self.annotatedObjects = None
         self.customPropertys = customPropertys
     def from_file(file: str):
         r = {}
@@ -235,11 +290,6 @@ class Randomization():
                 r[k] = ObjectGroup.from_dict(v, cp)
         return Randomization(r)   
     def __call__(self, objects) -> list[bpy.types.Object]:
-        self.annotatedObjects = []
         for k, v in self.groups.items():
             print(f"Running group: {k}")
             v(objects)
-            if v.annotate:
-                self.annotatedObjects += flatten(v.objects)
-    def getAnnotatedObjects(self):
-        return self.annotatedObjects
