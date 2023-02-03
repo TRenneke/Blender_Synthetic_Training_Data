@@ -1,12 +1,5 @@
 import bpy
 import mathutils
-import yaml
-import logging
-from typing import Union
-from functools import partial
-
-
-
 import json
 import os
 

@@ -1,12 +1,13 @@
 if "bpy" in locals():
     import importlib
     importlib.reload(sdg_sampler)
+    importlib.reload(yaml)
 else:
     from . import sdg_sampler
-
+    from . import yaml
 import bpy
 import mathutils
-import yaml
+#import yaml
 import logging
 import sys
 import functools
