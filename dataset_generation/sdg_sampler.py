@@ -57,9 +57,13 @@ class HSVSampler(Sampler):
     def __init__(self, val: Sampler) -> None:
         self.val = val
     def __call__(self):
-        h, s, v, a = self.val()
-        r, g, b = colorsys.hsv_to_rgb(h, s, v)
-        return (r, g, b, a)
+        v = self.val()
+        if len(v) == 3:
+            return colorsys.hsv_to_rgb(*v)
+        else:
+            h, s, v, a = v
+            r, g, b = colorsys.hsv_to_rgb(h, s, v)
+            return (r, g, b, a)
     def getParser(parameter: int, resultType):
         assert resultType == float
         return float

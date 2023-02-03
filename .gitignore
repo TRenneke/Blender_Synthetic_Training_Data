@@ -7,3 +7,4 @@ __pycache__/
 .vscode/
 material_loader.py
 scenes/
+Assets/

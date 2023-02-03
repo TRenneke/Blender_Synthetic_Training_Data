@@ -31,4 +31,4 @@ Lights:
   energy: Uniform(10, 1000)
 WorldImage:
   images: Object([world])
-  path: Choice([D:\Programmieren\Blender_Synthetic_Training_Data\scenes\workshop_2k.exr, D:\Programmieren\Blender_Synthetic_Training_Data\scenes\industrial_pipe_and_valve_01_2k.exr, D:\Programmieren\Blender_Synthetic_Training_Data\scenes\industrial_workshop_foundry_2k.exr, D:\Programmieren\Blender_Synthetic_Training_Data\scenes\peppermint_powerplant_2k.exr])
+  path: Choice(..\assets\environments.txt)

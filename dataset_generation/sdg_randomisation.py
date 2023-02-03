@@ -6,12 +6,11 @@ else:
     from . import sdg_sampler
     from . import yaml
 import bpy
-import mathutils
-#import yaml
 import logging
-import sys
 import functools
+import os
 from typing import Union
+
 
 def file_parser(val: str) -> Union[str, list] :
     return val
@@ -174,22 +173,40 @@ def sampler_from_string(s: str, parser) -> sdg_sampler.Sampler:
     else:
         # Check if the value is a tuple
         if s[0] == "(":
+            assert s[-1] == ")"
             # Extract the value as a tuple of object_from_string
             value = tuple(sampler_from_string(x.strip(), parser) for x in split_string(s[1:-1]))
         elif s[0] == "[":
-            value = [sampler_from_string(x.strip(), parser) for x in split_string(s[1:-1])]
+            assert s[-1] == "]"
+            value = [sampler_from_string(x.strip(), parser) for x in unpack_assets(split_string(s[1:-1]))]
+        elif s.endswith(".txt"):
+            value = [sampler_from_string(x.strip(), parser) for x in unpack_assets([s])]
         else:
-            # Extract the value as a float
             value = parser(s)
 
         # Create and return an instance of the ValueSample class, passing in the value
         return sdg_sampler.ValueSampler(value)
-def read_txt_file(file_name):
-  with open(file_name, "r") as file:
-    lines = file.readlines()
-  lines = [line.strip() for line in lines]
+def unpack_assets(vals: list[str]):
+    r = []
+    for val in vals:
+        if val.endswith(".txt"):
+            r = r + read_txt_file(val)
+        else:
+            r.append(val)
+    return r
 
-  return lines
+def read_txt_file(file_name):
+    with open(file_name, "r") as file:
+        lines = file.readlines()
+    lines: list[str] = [line.strip() for line in lines]
+    r = []
+    for line in lines:
+        if line.endswith(os.path.sep):
+            r = r + [os.path.abspath(os.path.join(line, x)) for x in os.listdir(line)]
+        else:
+            r.append[line]
+    print(r) 
+    return r
 def parseNames(values: list[str]):
     for val in values:
         if val.endswith(".txt"):
