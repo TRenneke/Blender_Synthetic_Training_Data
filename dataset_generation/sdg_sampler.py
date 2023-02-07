@@ -106,18 +106,19 @@ class CameraLocationSampler():
             return str
         return float
 #### ------------------------------------ Object Sampler ------------------------------------ #### 
-def getObjects(objects, names):
-    if isinstance(objects, list):
-        return [getObjects(obj, names) for obj in objects if obj.name.split(".")[0] in names]
-    return objects
-class ObjectSampler(Sampler):
+class SelectSampler(Sampler):
     def __init__(self, val: Sampler) -> None:
         self.val = val
-    def __call__(self, objects: list[bpy.types.Object]) -> list[bpy.types.Object]:
+    def __call__(self, objects: list[list[bpy.types.Object]]) -> list[list[bpy.types.Object]]:
         s = self.val()
         if not isinstance(s, list):
             s = [s]
-        return getObjects(objects, s)
+        r = []
+        for objs in objects:
+            objs = [x for x in objs if x.name.split(".")[0] in s]
+            if len(objs) > 0:
+                r.append(objs)
+        return r
     def getParser(parameter: id, resultType):
         return resultType
 class CollectionSampler(Sampler):
@@ -130,22 +131,14 @@ class CollectionSampler(Sampler):
         return [col.all_objects.values() for col in bpy.data.collections if col.name.split(".")[0] in s]
     def getParser(parameter: id, resultType):
         return resultType
-def unpackCollection(obj):
-    if not isinstance(obj, bpy.types.Collection):
-        return obj
-    else: 
-        return obj.all_objects.values()
-class AppendSampler(Sampler):
+class MergeSampler(Sampler):
     def __init__(self, val: Sampler) -> None:
-        self.val = val
-        self.loaded = None
-        self.lastObjs = None
-    def __call__(self, objects: list[bpy.types.Object]):
-        s = self.val()
-        if not isinstance(s, list):
-            s = [s]
-        self.lastObjs = [sdg_utils.append_object(x) for x in s]
-        return [unpackCollection(x) for x in self.lastObjs]
+        pass
+    def __call__(self, objects: list[list[bpy.types.Object]]) -> list[list[bpy.types.Object]]:
+        r = []
+        for objl in objects:
+            r += objl
+        return [r]
     def getParser(parameter: id, resultType):
         return resultType
 class RootSampler():
@@ -157,6 +150,27 @@ class RootSampler():
         return objects
     def getParser(parameter: id, resultType):
         return resultType
+class LightSampler():
+    def __init__(self) -> None:
+        pass
+    def __call__(self, objects: list) -> list:
+        return [[y.data for y in x if isinstance(y.data, bpy.types.Light)] for x in objects] 
+    def getParser(parameter: id, resultType):
+        return resultType
+class CameraSampler():
+    def __init__(self) -> None:
+        pass
+    def __call__(self, objects: list) -> list:
+        return [[y.data for y in x if isinstance(y.data, bpy.types.Camera)] for x in objects]
+    def getParser(parameter: id, resultType):
+        return resultType
+class UnpackSampler():
+    def __init__(self) -> None:
+        pass
+    def __call__(self, objects: list) -> list:
+        return [[j] for i in objects for j in i]
+    def getParser(parameter: id, resultType):
+        return resultType
 Samplers: dict = None
 def registerSampler(sampler):
     global Samplers
@@ -166,11 +180,15 @@ def _registerAllSamplers():
     registerSampler(ValueSampler)
     registerSampler(HSVSampler)
     registerSampler(UniformSampler)
-    registerSampler(ObjectSampler)
+    registerSampler(SelectSampler)
     registerSampler(RootSampler)
     registerSampler(CameraLocationSampler)
     registerSampler(BoolSampler)
     registerSampler(CollectionSampler)
+    registerSampler(MergeSampler)
+    registerSampler(LightSampler)
+    registerSampler(CameraSampler)
+    registerSampler(UnpackSampler)
 if Samplers is None:
     Samplers = {}
     _registerAllSamplers()

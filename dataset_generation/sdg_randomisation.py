@@ -20,59 +20,46 @@ class SetValue():
     def __init__(self, attr: str, val: sdg_sampler.Sampler) -> None:
         self.attr = attr
         self.val = val
-    def __call__(self, obj: bpy.types.Object) -> None:
+    def __call__(self, obj: list[bpy.types.Object]) -> None:
         s = self.val()
-        if not isinstance(obj, list):
-            setattr(obj, self.attr, s)
-            return
         for o in obj:
-            if not isinstance(o, list):
-                setattr(o, self.attr, s)
-            else:
-                self.__call__(o)
+            setattr(o, self.attr, s)
     def setValFactory(attr):
         return functools.partial(SetValue, attr)
 class SetDataValue():
-    def __init__(self, attr: str, val: sdg_sampler.Sampler) -> None:
+    def __init__(self, attr: str, data_class,  val: sdg_sampler.Sampler) -> None:
         self.attr = attr
+        self.data_class = data_class
         self.val = val
-    def __call__(self, obj: bpy.types.Object) -> None:
+    def __call__(self, obj: list[bpy.types.Object]) -> None:
         s = self.val()
-        if not isinstance(obj, list):
-            setattr(obj.data, self.attr, s)
-            return
         for o in obj:
-            if not isinstance(o, list):
-                setattr(o.data, self.attr, s)
-            else:
-                self.__call__(o)
-    def setDataValFactory(attr):
-        return functools.partial(SetDataValue, attr)
+            if not isinstance(o.data, self.data_class):
+                print(f"Object data of tpye {type(obj)} is not instance of {self.data_class}")
+            setattr(o.data, self.attr, s)
+    def setDataValFactory(attr, data_class):
+        return functools.partial(SetDataValue, attr, data_class)
 
-class SetImgPath():
-    def __init__(self, val: sdg_sampler.Sampler) -> None:
-        self.val = val
-    def __call__(self, obj: bpy.types.Image) -> None:
-        s = self.val()
-        if not isinstance(obj, list):
-            obj.filepath = s
-            obj.reload()
-            return
-        for o in obj:
-            if not isinstance(o, list):
-                o.filepath = s
-                o.reload()
-            else:
-                self.__call__(o)
+#class SetImgPath():
+#    def __init__(self, val: sdg_sampler.Sampler) -> None:
+#        self.val = val
+#    def __call__(self, obj: bpy.types.Image) -> None:
+#        s = self.val()
+#        if not isinstance(obj, list):
+#            obj.filepath = s
+#            obj.reload()
+#            return
+#        for o in obj:
+#            if not isinstance(o, list):
+#                o.filepath = s
+#                o.reload()
+#            else:
+#                self.__call__(o)
 class SetVisible():
     def __init__(self, val: sdg_sampler.Sampler) -> None:
         self.val = val
-    def __call__(self, obj: bpy.types.Object) -> None:
+    def __call__(self, obj: list[bpy.types.Object]) -> None:
         s = self.val()
-        if not isinstance(obj, list):
-            obj.hide_render = not s
-            obj.hide_viewport = not s
-            return
         for o in obj:
             if not isinstance(o, list):
                 o.hide_render = not s
@@ -84,17 +71,11 @@ class SetCustomProperty():
     def __init__(self, attr: str, val: sdg_sampler.Sampler) -> None:
         self.attr = attr
         self.val = val
-    def __call__(self, obj: bpy.types.Object) -> None:
+    def __call__(self, obj: list[bpy.types.Object]) -> None:
         s = self.val()
-        if not isinstance(obj, list):
-            obj[self.attr] = s
-            return
         for o in obj:
-            if not isinstance(o, list):
                 o[self.attr] = s
-            else:
-                self.__call__(o)
-
+            
 def aplyVelocity(val, vel):
         return tuple([x + y for x, y in zip(val, vel)])
     
@@ -129,16 +110,23 @@ class SetVelocity():
 obj_properties = {"location": (float, SetValue.setValFactory("location")),
                   "rotation": (float, SetValue.setValFactory("rotation_euler")),
                   "scale": (float, SetValue.setValFactory("scale")),
+                  "delta_location": (float, SetValue.setValFactory("delta_location")),
+                  "delta_rotation": (float, SetValue.setValFactory("delta_rotation_euler")),
+                  "delta_scale": (float, SetValue.setValFactory("delta_scale")),
+                  
                   "color": (float, SetValue.setValFactory("color")),
                   "material": (material_parser, SetValue.setValFactory("active_material")),
                   "velocity": (float, SetVelocity.setVelFactory("location")),
-                  "visible": (bool, SetVisible),
-                  "energy": (float, SetDataValue.setDataValFactory("energy")),
-                  "light_color": (float, SetDataValue.setDataValFactory("color"))}
-image_properties = {"path": (str, SetImgPath)}
+                  "visible": (bool, SetVisible)}
+
+light_properties = {"energy": (float, SetValue.setValFactory("energy")),
+                    "color": (float, SetValue.setValFactory("color"))}
+image_properties = {"path": (str, SetValue.setValFactory("filepath"))}
+camera_properties = {"lens": (float, SetValue.setValFactory("lens"))}
+
 material_properties = {}
 scene_properties = {}
-object_types = {"objects": obj_properties, "images": image_properties, "materials": material_properties, "scenes": scene_properties}
+object_types = {"objects": obj_properties, "images": image_properties, "materials": material_properties, "scenes": scene_properties, "lights": light_properties, "cameras": camera_properties}
 
 def split_string(s):
     result = []
@@ -205,7 +193,6 @@ def read_txt_file(file_name):
             r = r + [os.path.abspath(os.path.join(line, x)) for x in os.listdir(line)]
         else:
             r.append[line]
-    print(r) 
     return r
 def parseNames(values: list[str]):
     for val in values:
@@ -226,15 +213,12 @@ class ObjectGroup():
         result_subgroups = []
         #object_type = None
         actions = {}
-        object_type = None
+        object_type = t
         for ot, a in object_types.items():
             if ot in group:
                 actions = a
                 object_type = ot
                 result_select.append(sampler_from_string(group[ot], str))
-        if t != None and object_type != t:
-            print(f"Subgroup object type is: {object_type} which is unequal to main group object type: {t}")
-            assert False
         for k, v in group.items():
             logging.debug(f"Processing property: {k}")
             if k in actions:
@@ -247,10 +231,9 @@ class ObjectGroup():
                 result_exec.append(action)
                 continue
             if k in object_types:
-                #result_select.append(sampler_from_string(v, str))
                 continue
             if isinstance(v, dict):
-                result_exec.append(ObjectGroup.from_dict(v, customPropertys, object_type))
+                result_subgroups.append(ObjectGroup.from_dict(v, customPropertys, object_type))
                 continue
             else:
                 print(f"unknown Property: {k}")
@@ -260,8 +243,6 @@ class ObjectGroup():
         if objects is None:
             objects = self.getBaseDict()
         self.objects = self.getObjects(objects)
-        if self.type == "images":
-            print(self.objects)
         for ex in self.exec:
             for obj in self.objects:
                 ex(obj)
@@ -270,15 +251,19 @@ class ObjectGroup():
     def getObjects(self, objects):
         objs = []
         for selector in self.select:
-            objs = objs + selector(objects)
+            objs = selector(objects)
         return objs
     def getBaseDict(self):
         if self.type == "objects":
-            return bpy.data.objects.values()
+            return [bpy.data.objects.values()]
         if self.type == "images":
-            return bpy.data.images.values()
+            return [bpy.data.images.values()]
         if self.type == "materials":
-            return bpy.data.materials.values()
+            return [bpy.data.materials.values()]
+        if self.type == "cameras":
+            return [bpy.data.cameras.values()]
+        if self.type == "lights":
+            return [bpy.data.lights.values()]
         
 
 def flatten(S):
@@ -309,5 +294,4 @@ class Randomization():
         return Randomization(r)   
     def __call__(self, objects) -> list[bpy.types.Object]:
         for k, v in self.groups.items():
-            print(f"Running group: {k}")
             v(objects)
