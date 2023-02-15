@@ -163,8 +163,6 @@ class CollectionChildrenSampler():
                 ng = ng + coll.children.values()
             
             r.append(ng)
-        print(objects)
-        print(r)
         return r
     def getParser(parameter: id, resultType):
         return resultType
@@ -172,12 +170,12 @@ class CollectionObjectsSampler():
     def __init__(self) -> None:
         pass
     def __call__(self, objects: list[list[bpy.types.Collection]]) -> list[list[bpy.types.Object]]:
-        r = []
+        r = []  
         for collGroup in objects:
             ng = []
             for coll in collGroup:
-                ng = ng + coll.objects
-            r = r + ng
+                ng = ng + coll.all_objects.values()
+            r.append(ng)
         return r
     def getParser(parameter: id, resultType):
         return resultType

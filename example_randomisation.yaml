@@ -7,8 +7,11 @@ CustomPropertys:
 Distractors:
   collections: Select(Distractors)
   _Distractors:
-    collections: CollectionChildren()
-    visible: False
+    collections: Unpack()
+    visible: True
     __Distractors:
-      collections: Select(Choice([Cube, Ape]))
-      visible: True
+      collections: CollectionObjects()
+      visible: False
+      ___Distractors:
+        collections: Select(Choice([DCube, Ape]))
+        visible: True
