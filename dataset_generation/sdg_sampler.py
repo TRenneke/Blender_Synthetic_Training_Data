@@ -128,11 +128,13 @@ class SelectSampler(Sampler):
     def __init__(self, val: Sampler) -> None:
         self.val = val
     def __call__(self, objects: list[list[bpy.types.Object]]) -> list[list[bpy.types.Object]]:
-        s = self.val()
-        if not isinstance(s, list):
-            s = [s]
         r = []
         for objs in objects:
+            s = self.val()
+            if not isinstance(s, list):
+                s = [s]
+            
+        
             objs = [x for x in objs if x.name.split(".")[0] in s]
             if len(objs) > 0:
                 r.append(objs)
@@ -159,7 +161,10 @@ class CollectionChildrenSampler():
             ng = []
             for coll in collGroup:
                 ng = ng + coll.children.values()
+            
             r.append(ng)
+        print(objects)
+        print(r)
         return r
     def getParser(parameter: id, resultType):
         return resultType

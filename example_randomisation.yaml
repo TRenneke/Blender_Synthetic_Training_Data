@@ -3,24 +3,7 @@ CustomPropertys:
   tex_offset: float
   label: bool
 #Camera Group needs to be randomized first!
-Camera_Objects:
-  objects: Select([Camera])
-  location: (0, 0, 0)
-  rotation: (1.570, 0, 0)
-  velocity: Uniform((0, 0, -0.2), (0, 0, 0.2))
-  label: True
-  Camera:
-    cameras: Camera()
-    lens: Uniform(10, 100)
-Cubes:
-  objects: Select([Cube])
-  label: True
-  color: HSV(Uniform((0, 0, 0, 1), (1, 1, 1, 1)))
-  location: CameraLocation(Camera, Uniform((-1, -1, 2), (1, 1, 10)))
-  rotation: Uniform((0, 0, 0), (6.283, 6.283, 6.283))
-  tex_scale: Uniform(0.5, 2)
-  tex_offset: Uniform((0, 0), (1, 1))
-  visible: Bool(0.5)
+
 Distractors:
   collections: Select(Distractors)
   _Distractors:
@@ -29,29 +12,3 @@ Distractors:
     __Distractors:
       collections: Select(Choice([Cube, Ape]))
       visible: True
-
-
-Pallets:
-  objects: Collection(Test)
-  label: True
-  PalletOrigins: 
-    objects: Root()
-    location: CameraLocation(Camera, Uniform((-1, -1, 2), (1, 1, 10)))
-    rotation: Uniform((0, 0, 0), (6.283, 6.283, 6.283))
-  Blocks: 
-    objects: Select([Block])
-    #rotation: (0, 0, 0)
-    #delta_location: Uniform((-1, -1, 0), (1, 1, 0))
-    #color: HSV(Uniform((0, 0, 0, 1), (1, 1, 1, 1)))
-    Blocks_Unpacked: 
-      objects: Unpack()
-      color: HSV(Uniform((0, 0, 0, 1), (1, 1, 1, 1)))
-Light_Objects:
-  objects: Select([Light])
-  Light:
-    lights: Light()
-    color: Uniform((0, 0, 0), (1, 1, 1))
-    energy: Uniform(10, 1000)
-WorldImage:
-  images: Select([world])
-  path: Choice(..\assets\environments.txt)
