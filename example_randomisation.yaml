@@ -21,6 +21,16 @@ Cubes:
   tex_scale: Uniform(0.5, 2)
   tex_offset: Uniform((0, 0), (1, 1))
   visible: Bool(0.5)
+Distractors:
+  collections: Select(Distractors)
+  _Distractors:
+    collections: CollectionChildren()
+    visible: False
+    __Distractors:
+      collections: Select(Choice([Cube, Ape]))
+      visible: True
+
+
 Pallets:
   objects: Collection(Palette)
   label: True

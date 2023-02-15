@@ -61,12 +61,9 @@ class SetVisible():
     def __call__(self, obj: list[bpy.types.Object]) -> None:
         s = self.val()
         for o in obj:
-            if not isinstance(o, list):
-                o.hide_render = not s
-                o.hide_viewport = not s
-            else:
-                self.__call__(o)
-
+            o.hide_render = not s
+            o.hide_viewport = not s
+            
 class SetCustomProperty():
     def __init__(self, attr: str, val: sdg_sampler.Sampler) -> None:
         self.attr = attr
@@ -126,7 +123,8 @@ camera_properties = {"lens": (float, SetValue.setValFactory("lens"))}
 
 material_properties = {}
 scene_properties = {}
-object_types = {"objects": obj_properties, "images": image_properties, "materials": material_properties, "scenes": scene_properties, "lights": light_properties, "cameras": camera_properties}
+collection_properties = {"visible": (bool, SetVisible)}
+object_types = {"objects": obj_properties, "images": image_properties, "materials": material_properties, "scenes": scene_properties, "lights": light_properties, "cameras": camera_properties, "collections": collection_properties}
 
 def split_string(s):
     result = []
@@ -192,7 +190,7 @@ def read_txt_file(file_name):
         if line.endswith(os.path.sep):
             r = r + [os.path.abspath(os.path.join(line, x)) for x in os.listdir(line)]
         else:
-            r.append[line]
+            r.append(line)
     return r
 def parseNames(values: list[str]):
     for val in values:
@@ -264,6 +262,8 @@ class ObjectGroup():
             return [bpy.data.cameras.values()]
         if self.type == "lights":
             return [bpy.data.lights.values()]
+        if self.type == "collections":
+            return [bpy.data.collections.values()]
         
 
 def flatten(S):

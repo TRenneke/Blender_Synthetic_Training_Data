@@ -84,6 +84,24 @@ class UniformSampler(Sampler):
         assert resultType == float or resultType == int
         return resultType
 
+class NormalSampler(Sampler):
+    def __init__(self, mu: Union[Sampler, tuple[Sampler]], sigma):
+        self.mu = mu
+        self.sigma = sigma
+    def __call__(self):
+        _mu = self.mu()
+        _sigma = self.sigma()
+        if isinstance(_mu, tuple):
+            l = min(len(_mu), len(_sigma))
+            result = tuple(random.normalvariate(_mu[i], _sigma[i]) for i in range(l))
+            return result
+        else:
+            return random.uniform(_mu, _sigma)
+    def getParser(parameter: int, resultType):
+        assert resultType == float
+        return resultType
+
+
 class CameraLocationSampler():
     def __init__(self, camera: Sampler, val: Sampler) -> None:
         self.val = val
@@ -121,6 +139,7 @@ class SelectSampler(Sampler):
         return r
     def getParser(parameter: id, resultType):
         return resultType
+
 class CollectionSampler(Sampler):
     def __init__(self, val: Sampler) -> None:
         self.val = val
@@ -131,6 +150,33 @@ class CollectionSampler(Sampler):
         return [col.all_objects.values() for col in bpy.data.collections if col.name.split(".")[0] in s]
     def getParser(parameter: id, resultType):
         return resultType
+class CollectionChildrenSampler():
+    def __init__(self) -> None:
+        pass
+    def __call__(self, objects: list[list[bpy.types.Collection]]) -> list[list[bpy.types.Collection]]:
+        r = []
+        for collGroup in objects:
+            ng = []
+            for coll in collGroup:
+                ng = ng + coll.children.values()
+            r.append(ng)
+        return r
+    def getParser(parameter: id, resultType):
+        return resultType
+class CollectionObjectsSampler():
+    def __init__(self) -> None:
+        pass
+    def __call__(self, objects: list[list[bpy.types.Collection]]) -> list[list[bpy.types.Object]]:
+        r = []
+        for collGroup in objects:
+            ng = []
+            for coll in collGroup:
+                ng = ng + coll.objects
+            r = r + ng
+        return r
+    def getParser(parameter: id, resultType):
+        return resultType
+    
 class MergeSampler(Sampler):
     def __init__(self, val: Sampler) -> None:
         pass
@@ -171,6 +217,7 @@ class UnpackSampler():
         return [[j] for i in objects for j in i]
     def getParser(parameter: id, resultType):
         return resultType
+
 Samplers: dict = None
 def registerSampler(sampler):
     global Samplers
@@ -189,6 +236,9 @@ def _registerAllSamplers():
     registerSampler(LightSampler)
     registerSampler(CameraSampler)
     registerSampler(UnpackSampler)
+    registerSampler(NormalSampler)
+    registerSampler(CollectionChildrenSampler)
+    registerSampler(CollectionObjectsSampler)
 if Samplers is None:
     Samplers = {}
     _registerAllSamplers()
