@@ -32,7 +32,7 @@ Distractors:
 
 
 Pallets:
-  objects: Collection(Palette)
+  objects: Collection(Test)
   label: True
   PalletOrigins: 
     objects: Root()
