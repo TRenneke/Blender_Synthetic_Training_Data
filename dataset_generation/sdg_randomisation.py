@@ -161,12 +161,12 @@ def sampler_from_string(s: str, parser) -> sdg_sampler.Sampler:
         if s[0] == "(":
             assert s[-1] == ")"
             # Extract the value as a tuple of object_from_string
-            value = tuple(sampler_from_string(x.strip(), parser) for x in split_string(s[1:-1]))
+            value = tuple(sampler_from_string(x.strip().strip('"\''), parser) for x in split_string(s[1:-1]))
         elif s[0] == "[":
             assert s[-1] == "]"
-            value = [sampler_from_string(x.strip(), parser) for x in unpack_assets(split_string(s[1:-1]))]
+            value = [sampler_from_string(x.strip().strip('"\''), parser) for x in unpack_assets(split_string(s[1:-1]))]
         elif s.endswith(".txt"):
-            value = [sampler_from_string(x.strip(), parser) for x in unpack_assets([s])]
+            value = [sampler_from_string(x.strip().strip('"\''), parser) for x in unpack_assets([s])]
         else:
             value = parser(s)
 
@@ -176,7 +176,7 @@ def unpack_assets(vals: list[str]):
     r = []
     for val in vals:
         if val.endswith(".txt"):
-            r = r + read_txt_file(val)
+            r = r + read_txt_file(val.strip().strip('"\''))
         else:
             r.append(val)
     return r
