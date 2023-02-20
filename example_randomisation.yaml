@@ -5,16 +5,11 @@ CustomPropertys:
 #Camera Group needs to be randomized first!
 
 Distractors:
-  collections: Select(Distractors)
+  collections: CollectionObjects(Unpack(Select(Distractors)))
+  visible: False
   _Distractors:
-    collections: Unpack()
+    collections: Select(Choice([DCube, Ape]))
     visible: True
-    __Distractors:
-      collections: CollectionObjects()
-      visible: False
-      ___Distractors:
-        collections: Select(Choice([DCube, Ape]))
-        visible: True
 WorldImage:
   images: Select([world])
   path: Choice([..\assets\environments.txt, ..\assets\environments.txt])

@@ -124,17 +124,26 @@ class CameraLocationSampler():
             return str
         return float
 #### ------------------------------------ Object Sampler ------------------------------------ #### 
-class SelectSampler(Sampler):
+
+class ObjectSampler(Sampler):
     def __init__(self, val: Sampler) -> None:
-        self.val = val
+        pass
     def __call__(self, objects: list[list[bpy.types.Object]]) -> list[list[bpy.types.Object]]:
+        pass
+    def getParser(parameter: id, resultType):
+        pass
+class SelectSampler(ObjectSampler):
+    def __init__(self, val: Sampler, objects: ObjectSampler = None) -> None:
+        self.val = val
+        self.objects = objects
+    def __call__(self, objects: list[list[bpy.types.Object]]) -> list[list[bpy.types.Object]]:
+        if not self.objects is None:
+            objects = self.objects(objects)
         r = []
         for objs in objects:
             s = self.val()
             if not isinstance(s, list):
-                s = [s]
-            
-        
+                s = [s]            
             objs = [x for x in objs if x.name.split(".")[0] in s]
             if len(objs) > 0:
                 r.append(objs)
@@ -142,10 +151,14 @@ class SelectSampler(Sampler):
     def getParser(parameter: id, resultType):
         return resultType
 
-class CollectionSampler(Sampler):
-    def __init__(self, val: Sampler) -> None:
+class CollectionSampler(ObjectSampler):
+    def __init__(self, val: Sampler, objects: ObjectSampler = None) -> None:
         self.val = val
+        self.objects = objects
     def __call__(self, objects: list[bpy.types.Object]) -> list[bpy.types.Object]:
+        if not self.objects is None:
+            objects = self.objects(objects)
+
         s = self.val()
         if not isinstance(s, list):
             s = [s]
@@ -153,9 +166,12 @@ class CollectionSampler(Sampler):
     def getParser(parameter: id, resultType):
         return resultType
 class CollectionChildrenSampler():
-    def __init__(self) -> None:
-        pass
+    def __init__(self, objects: ObjectSampler = None) -> None:
+        self.objects = objects
     def __call__(self, objects: list[list[bpy.types.Collection]]) -> list[list[bpy.types.Collection]]:
+        if not self.objects is None:
+            objects = self.objects(objects)
+
         r = []
         for collGroup in objects:
             ng = []
@@ -167,9 +183,12 @@ class CollectionChildrenSampler():
     def getParser(parameter: id, resultType):
         return resultType
 class CollectionObjectsSampler():
-    def __init__(self) -> None:
-        pass
+    def __init__(self, objects: ObjectSampler = None) -> None:
+        self.objects = objects
     def __call__(self, objects: list[list[bpy.types.Collection]]) -> list[list[bpy.types.Object]]:
+        if not self.objects is None:
+            objects = self.objects(objects)
+
         r = []  
         for collGroup in objects:
             ng = []
@@ -180,43 +199,54 @@ class CollectionObjectsSampler():
     def getParser(parameter: id, resultType):
         return resultType
     
-class MergeSampler(Sampler):
-    def __init__(self, val: Sampler) -> None:
-        pass
+class MergeSampler(ObjectSampler):
+    def __init__(self, val: Sampler, objects: ObjectSampler = None) -> None:
+        self.objects = objects
     def __call__(self, objects: list[list[bpy.types.Object]]) -> list[list[bpy.types.Object]]:
+        if not self.objects is None:
+            objects = self.objects(objects)
+
         r = []
         for objl in objects:
             r += objl
         return [r]
     def getParser(parameter: id, resultType):
         return resultType
-class RootSampler():
-    def __init__(self) -> None:
-        pass
+class RootSampler(ObjectSampler):
+    def __init__(self, objects: ObjectSampler = None) -> None:
+        self.objects = objects
     def __call__(self, objects: list) -> list:
+        if not self.objects is None:
+            objects = self.objects(objects)
         if isinstance(objects, list):
             return [self.__call__(objs) for objs in objects if isinstance(objs, list) or objs.parent is None]
         return objects
     def getParser(parameter: id, resultType):
         return resultType
-class LightSampler():
-    def __init__(self) -> None:
-        pass
+class LightSampler(ObjectSampler):
+    def __init__(self, objects: ObjectSampler = None) -> None:
+        self.objects = objects
     def __call__(self, objects: list) -> list:
+        if not self.objects is None:
+            objects = self.objects(objects)
         return [[y.data for y in x if isinstance(y.data, bpy.types.Light)] for x in objects] 
     def getParser(parameter: id, resultType):
         return resultType
-class CameraSampler():
-    def __init__(self) -> None:
-        pass
+class CameraSampler(ObjectSampler):
+    def __init__(self, objects: ObjectSampler = None) -> None:
+        self.objects = objects
     def __call__(self, objects: list) -> list:
+        if not self.objects is None:
+            objects = self.objects(objects)
         return [[y.data for y in x if isinstance(y.data, bpy.types.Camera)] for x in objects]
     def getParser(parameter: id, resultType):
         return resultType
-class UnpackSampler():
-    def __init__(self) -> None:
-        pass
+class UnpackSampler(ObjectSampler):
+    def __init__(self, objects: ObjectSampler = None) -> None:
+        self.objects = objects
     def __call__(self, objects: list) -> list:
+        if not self.objects is None:
+            objects = self.objects(objects)
         return [[j] for i in objects for j in i]
     def getParser(parameter: id, resultType):
         return resultType
