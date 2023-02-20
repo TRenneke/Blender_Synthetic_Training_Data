@@ -22,16 +22,24 @@ import bpy
 from bpy.app.handlers import persistent
 import os
 import random
+import datetime
 
 backup_path = "temp.blend"
 default_context = None
 randomisation: sdg_randomisation.Randomization = None
+randomisation_load_time = None
+
 def getDatasetPath(scene: bpy.types.Scene):
     return os.path.dirname(os.path.dirname(scene.render.filepath))
+
+def loadRandomisation(path):
+    global randomisation_load_time
+    randomisation_load_time = datetime.datetime.fromtimestamp(os.path.getmtime(path))
+    return sdg_randomisation.Randomization.from_file(path)
 def runRandomisation(scene):
     global randomisation
-    if randomisation is None:
-        randomisation = sdg_randomisation.Randomization.from_file(scene.randomisation_file)
+    if randomisation is None or randomisation_load_time < datetime.datetime.fromtimestamp(os.path.getmtime(scene.randomisation_file)):
+        randomisation = loadRandomisation(scene.randomisation_file)
         print("Loaded randomisation file:", scene.randomisation_file)
     randomisation(None)
 def createDataset(scene: bpy.types.Scene):
@@ -130,7 +138,7 @@ class LoadRandFileOperator(bpy.types.Operator):
         print("FilePath:", self.filepath)
         context.scene.randomisation_file = self.filepath
         global randomisation
-        randomisation = sdg_randomisation.Randomization.from_file(context.scene.randomisation_file)
+        randomisation = loadRandomisation(context.scene.randomisation_file)
         return {'FINISHED'}
 
     def invoke(self, context, event):
