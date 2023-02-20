@@ -3,10 +3,13 @@ CustomPropertys:
   tex_offset: float
   label: bool
 #Camera Group needs to be randomized first!
-
+test:
+  objects: Select(["Nothing"])
+  color: HSV(Uniform((0, 0, 0, 1), (1, 1, 1, 1)))
 Distractors:
   collections: CollectionObjects(Unpack(Select(Distractors)))
   visible: False
+  includes: [test]
   _Distractors:
     collections: Select(Choice([DCube, Ape]))
     visible: True

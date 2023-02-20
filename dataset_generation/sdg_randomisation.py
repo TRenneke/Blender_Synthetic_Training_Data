@@ -16,6 +16,8 @@ def file_parser(val: str) -> Union[str, list] :
     return val
 def material_parser(val: str) -> bpy.types.Material:
     return bpy.data.materials[val]
+def bool_parser(val: str):
+    return val.lower() == "true"
 class SetValue():
     def __init__(self, attr: str, val: sdg_sampler.Sampler) -> None:
         self.attr = attr
@@ -114,7 +116,7 @@ obj_properties = {"location": (float, SetValue.setValFactory("location")),
                   "color": (float, SetValue.setValFactory("color")),
                   "material": (material_parser, SetValue.setValFactory("active_material")),
                   "velocity": (float, SetVelocity.setVelFactory("location")),
-                  "visible": (bool, SetVisible)}
+                  "visible": (bool_parser, SetVisible)}
 
 light_properties = {"energy": (float, SetValue.setValFactory("energy")),
                     "color": (float, SetValue.setValFactory("color"))}
@@ -123,7 +125,7 @@ camera_properties = {"lens": (float, SetValue.setValFactory("lens"))}
 
 material_properties = {}
 scene_properties = {}
-collection_properties = {"visible": (bool, SetVisible)}
+collection_properties = {"visible": (bool_parser, SetVisible)}
 object_types = {"objects": obj_properties, "images": image_properties, "materials": material_properties, "scenes": scene_properties, "lights": light_properties, "cameras": camera_properties, "collections": collection_properties}
 
 def split_string(s):
@@ -144,7 +146,7 @@ def split_string(s):
 def sampler_from_string(s: str, parser) -> sdg_sampler.Sampler:
     # Check if the string starts with a class name
     if not isinstance(s, str):
-        return sdg_sampler.ValueSampler(s)
+        s = str(s)
     if s[0].isupper() and "(" in s:
         # Split the string into two parts: the name of the class and the list of values
         class_name, values_string = s.split("(", 1)
@@ -164,19 +166,19 @@ def sampler_from_string(s: str, parser) -> sdg_sampler.Sampler:
             value = tuple(sampler_from_string(x.strip().strip('"\''), parser) for x in split_string(s[1:-1]))
         elif s[0] == "[":
             assert s[-1] == "]"
-            value = [sampler_from_string(x.strip().strip('"\''), parser) for x in unpack_assets(split_string(s[1:-1]))]
+            value = [sampler_from_string(x, parser) for x in unpack_assets(split_string(s[1:-1]))]
         elif s.endswith(".txt"):
-            value = [sampler_from_string(x.strip().strip('"\''), parser) for x in unpack_assets([s])]
+            value = [sampler_from_string(x, parser) for x in unpack_assets([s])]
         else:
             value = parser(s)
-
         # Create and return an instance of the ValueSample class, passing in the value
         return sdg_sampler.ValueSampler(value)
 def unpack_assets(vals: list[str]):
     r = []
     for val in vals:
+        val = val.strip().strip('"\'')
         if val.endswith(".txt"):
-            r = r + read_txt_file(val.strip().strip('"\''))
+            r = r + read_txt_file(val)
         else:
             r.append(val)
     return r
@@ -199,12 +201,16 @@ def parseNames(values: list[str]):
     return
 
 class ObjectGroup():
-    def __init__(self, exec, select, subGroup, t) -> None:
+    def __init__(self, exec, select, subGroup, t, includes) -> None:
         self.exec = exec
         self.select = select
         self.subGroups = subGroup
         self.objects = None
         self.type = t
+        self.includes = includes
+    
+    def include_group(self, group):
+        self.exec += group.exec
     def from_dict(group: dict, customPropertys, t = None):
         result_exec = []
         result_select = []
@@ -212,6 +218,8 @@ class ObjectGroup():
         #object_type = None
         actions = {}
         object_type = t
+        includes = sdg_sampler.ValueSampler([])
+
         for ot, a in object_types.items():
             if ot in group:
                 actions = a
@@ -233,10 +241,12 @@ class ObjectGroup():
             if isinstance(v, dict):
                 result_subgroups.append(ObjectGroup.from_dict(v, customPropertys, object_type))
                 continue
+            if k == "includes":
+                includes = sampler_from_string(v, str)                
             else:
                 print(f"unknown Property: {k}")
                 continue
-        return ObjectGroup(result_exec, result_select, result_subgroups, object_type)
+        return ObjectGroup(result_exec, result_select, result_subgroups, object_type, includes)
     def __call__(self, objects = None) -> list[bpy.types.Object]:
         if objects is None:
             objects = self.getBaseDict()
@@ -291,7 +301,10 @@ class Randomization():
                 if k == "CustomPropertys":      
                     continue
                 r[k] = ObjectGroup.from_dict(v, cp)
-        return Randomization(r)   
+            for k, v in r.items():
+                for icl in v.includes():
+                    v.include_group(r[icl])
+        return Randomization(r)
     def __call__(self, objects) -> list[bpy.types.Object]:
         for k, v in self.groups.items():
             v(objects)
