@@ -209,8 +209,12 @@ class ObjectGroup():
         self.type = t
         self.includes = includes
     
-    def include_group(self, group):
-        self.exec += group.exec
+    def include_group(self, groups: dict):
+        for icl in self.includes():
+            if icl in groups:
+                self.exec += groups[icl].exec
+        for child in self.subGroups:
+            child.include_group(groups)
     def from_dict(group: dict, customPropertys, t = None):
         result_exec = []
         result_select = []
@@ -301,9 +305,8 @@ class Randomization():
                 if k == "CustomPropertys":      
                     continue
                 r[k] = ObjectGroup.from_dict(v, cp)
-            for k, v in r.items():
-                for icl in v.includes():
-                    v.include_group(r[icl])
+            for v in r.values():
+                v.include_group(r)
         return Randomization(r)
     def __call__(self, objects) -> list[bpy.types.Object]:
         for k, v in self.groups.items():
