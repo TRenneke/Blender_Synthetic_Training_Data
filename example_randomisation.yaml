@@ -18,6 +18,15 @@ Distractors:
 WorldImage:
   images: Select([world])
   path: Choice([..\assets\environments.txt, ..\assets\environments.txt])
+Cubes:
+  objects: Unpack(Select([Cube]))
+  label: True
+  color: HSV(Uniform((0, 0, 0, 1), (1, 1, 1, 1)))
+  location: CameraLocation(Camera, Uniform((-1, -1, 8), (1, 1, 25)))
+  rotation: Uniform((0, 0, 0), (6.283, 6.283, 6.283))
+  tex_scale: Uniform(0.5, 2)
+  tex_offset: Uniform((0, 0), (1, 1))
+  visible: Bool(0.5)
 
 Camera_Objects:
   objects: Select([Camera])
@@ -27,7 +36,7 @@ Camera_Objects:
   label: True
   Camera:
     cameras: Camera()
-    lens: Uniform(10, 100)
+    lens: Uniform(20, 50)
 
 Light_Objects:
   objects: Select([Light])
