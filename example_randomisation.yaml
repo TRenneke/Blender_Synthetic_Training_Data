@@ -6,13 +6,32 @@ CustomPropertys:
 test:
   objects: Select(["Nothing"])
   color: HSV(Uniform((0, 0, 0, 1), (1, 1, 1, 1)))
+
+
 Distractors:
-  collections: CollectionObjects(Unpack(Select(Distractors)))
+  objects: CollectionObjects(Unpack(Select(Distractors)))
   visible: False
-  includes: [test]
   _Distractors:
-    collections: Select(Choice([DCube, Ape]))
+    objects: Select(Choice([DCube, Ape]))
     visible: True
+    includes: [test]
 WorldImage:
   images: Select([world])
   path: Choice([..\assets\environments.txt, ..\assets\environments.txt])
+
+Camera_Objects:
+  objects: Select([Camera])
+  location: (0, 0, 0)
+  rotation: (1.570, 0, 0)
+  velocity: Uniform((0, 0, -0.2), (0, 0, 0.2))
+  label: True
+  Camera:
+    cameras: Camera()
+    lens: Uniform(10, 100)
+
+Light_Objects:
+  objects: Select([Light])
+  Light:
+    lights: Light()
+    color: Uniform((0, 0, 0), (1, 1, 1))
+    energy: Uniform(10, 1000)

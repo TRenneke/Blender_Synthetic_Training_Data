@@ -11,6 +11,7 @@ import colorsys
 import numpy as np
 from typing import Union
 from mathutils import Vector, Matrix
+import itertools
 
 class Sampler:
     def __init__(self, parser) -> None:
@@ -126,19 +127,24 @@ class CameraLocationSampler():
 #### ------------------------------------ Object Sampler ------------------------------------ #### 
 
 class ObjectSampler(Sampler):
-    def __init__(self, val: Sampler) -> None:
-        pass
-    def __call__(self, objects: list[list[bpy.types.Object]]) -> list[list[bpy.types.Object]]:
-        pass
-    def getParser(parameter: id, resultType):
-        pass
-class SelectSampler(ObjectSampler):
-    def __init__(self, val: Sampler, objects: ObjectSampler = None) -> None:
-        self.val = val
+    def __init__(self, objects: Sampler = None) -> None:
         self.objects = objects
     def __call__(self, objects: list[list[bpy.types.Object]]) -> list[list[bpy.types.Object]]:
         if not self.objects is None:
             objects = self.objects(objects)
+        return objects
+    def getParser(parameter: id, resultType):
+        return resultType
+    def getType(self, t):
+        if self.objects is None:
+            return t
+        return self.objects.getType(t)
+class SelectSampler(ObjectSampler):
+    def __init__(self, val: Sampler, objects: ObjectSampler = None) -> None:
+        super().__init__(objects)
+        self.val = val
+    def __call__(self, objects: list[list[bpy.types.Object]]) -> list[list[bpy.types.Object]]:
+        objects = super().__call__(objects)
         r = []
         for objs in objects:
             s = self.val()
@@ -148,108 +154,56 @@ class SelectSampler(ObjectSampler):
             if len(objs) > 0:
                 r.append(objs)
         return r
-    def getParser(parameter: id, resultType):
-        return resultType
-
-class CollectionSampler(ObjectSampler):
-    def __init__(self, val: Sampler, objects: ObjectSampler = None) -> None:
-        self.val = val
-        self.objects = objects
-    def __call__(self, objects: list[bpy.types.Object]) -> list[bpy.types.Object]:
-        if not self.objects is None:
-            objects = self.objects(objects)
-
-        s = self.val()
-        if not isinstance(s, list):
-            s = [s]
-        return [col.all_objects.values() for col in bpy.data.collections if col.name.split(".")[0] in s]
-    def getParser(parameter: id, resultType):
-        return resultType
-class CollectionChildrenSampler():
-    def __init__(self, objects: ObjectSampler = None) -> None:
-        self.objects = objects
+class CollectionChildrenSampler(ObjectSampler):
     def __call__(self, objects: list[list[bpy.types.Collection]]) -> list[list[bpy.types.Collection]]:
-        if not self.objects is None:
-            objects = self.objects(objects)
-
-        r = []
-        for collGroup in objects:
-            ng = []
-            for coll in collGroup:
-                ng = ng + coll.children.values()
-            
-            r.append(ng)
-        return r
-    def getParser(parameter: id, resultType):
-        return resultType
-class CollectionObjectsSampler():
-    def __init__(self, objects: ObjectSampler = None) -> None:
-        self.objects = objects
+        objects = super().__call__(objects)
+        return [[coll.children.values() for coll in collGroup] for collGroup in objects]
+    def getType(self, t):
+        return super().getType("collections")
+class CollectionObjectsSampler(ObjectSampler):
     def __call__(self, objects: list[list[bpy.types.Collection]]) -> list[list[bpy.types.Object]]:
-        if not self.objects is None:
-            objects = self.objects(objects)
+        objects = super().__call__(objects)
+        lll = [[coll.all_objects.values() for coll in collGroup] for collGroup in objects]
+        print("CollObjs", [sum(x, []) for x in lll])
+        return [sum(x, []) for x in lll]
+    def getType(self, t):
+        return super().getType("collections")
 
-        r = []  
-        for collGroup in objects:
-            ng = []
-            for coll in collGroup:
-                ng = ng + coll.all_objects.values()
-            r.append(ng)
-        return r
-    def getParser(parameter: id, resultType):
-        return resultType
-    
-class MergeSampler(ObjectSampler):
-    def __init__(self, val: Sampler, objects: ObjectSampler = None) -> None:
-        self.objects = objects
-    def __call__(self, objects: list[list[bpy.types.Object]]) -> list[list[bpy.types.Object]]:
-        if not self.objects is None:
-            objects = self.objects(objects)
-
-        r = []
-        for objl in objects:
-            r += objl
-        return [r]
-    def getParser(parameter: id, resultType):
-        return resultType
 class RootSampler(ObjectSampler):
-    def __init__(self, objects: ObjectSampler = None) -> None:
-        self.objects = objects
     def __call__(self, objects: list) -> list:
-        if not self.objects is None:
-            objects = self.objects(objects)
-        if isinstance(objects, list):
-            return [self.__call__(objs) for objs in objects if isinstance(objs, list) or objs.parent is None]
-        return objects
-    def getParser(parameter: id, resultType):
-        return resultType
-class LightSampler(ObjectSampler):
-    def __init__(self, objects: ObjectSampler = None) -> None:
-        self.objects = objects
+        objects = super().__call__(objects)
+        return [[x for x in objg if x.parent is None] for objg in objects]
+    def getType(self, t):
+        return super().getType("objects")
+class DataSampler(ObjectSampler):
+    def __init__(self, data_type, objects: ObjectSampler = None) -> None:
+        super().__init__(objects)
+        self.data_type = data_type
     def __call__(self, objects: list) -> list:
-        if not self.objects is None:
-            objects = self.objects(objects)
-        return [[y.data for y in x if isinstance(y.data, bpy.types.Light)] for x in objects] 
-    def getParser(parameter: id, resultType):
-        return resultType
-class CameraSampler(ObjectSampler):
+        objects = super().__call__(objects)
+        return [[y.data for y in x if isinstance(y.data, self.data_type)] for x in objects] 
+    def getType(self, t):
+        return super().getType("objects")
+
+class LightSampler(DataSampler):
     def __init__(self, objects: ObjectSampler = None) -> None:
-        self.objects = objects
-    def __call__(self, objects: list) -> list:
-        if not self.objects is None:
-            objects = self.objects(objects)
-        return [[y.data for y in x if isinstance(y.data, bpy.types.Camera)] for x in objects]
-    def getParser(parameter: id, resultType):
-        return resultType
+        super().__init__(bpy.types.Light, objects)
+class CameraSampler(DataSampler):
+    def __init__(self, objects: ObjectSampler = None) -> None:
+        super().__init__(bpy.types.Camera, objects)
 class UnpackSampler(ObjectSampler):
-    def __init__(self, objects: ObjectSampler = None) -> None:
-        self.objects = objects
     def __call__(self, objects: list) -> list:
-        if not self.objects is None:
-            objects = self.objects(objects)
+        objects = super().__call__(objects)
+        print("Unpack", [[j] for i in objects for j in i])
+        
         return [[j] for i in objects for j in i]
-    def getParser(parameter: id, resultType):
-        return resultType
+class PackSampler(ObjectSampler):
+    def __call__(self, objects: list[list[bpy.types.Object]]) -> list[list[bpy.types.Object]]:
+        objects = super().__call__(objects)   
+        return sum(objects, [])
+
+CollOjbsSampler = CollectionObjectsSampler
+CollChildsSampler = CollectionChildrenSampler
 
 Samplers: dict = None
 def registerSampler(sampler):
@@ -264,14 +218,15 @@ def _registerAllSamplers():
     registerSampler(RootSampler)
     registerSampler(CameraLocationSampler)
     registerSampler(BoolSampler)
-    registerSampler(CollectionSampler)
-    registerSampler(MergeSampler)
+    registerSampler(PackSampler)
     registerSampler(LightSampler)
     registerSampler(CameraSampler)
     registerSampler(UnpackSampler)
     registerSampler(NormalSampler)
     registerSampler(CollectionChildrenSampler)
     registerSampler(CollectionObjectsSampler)
+    registerSampler(CollChildsSampler)
+    registerSampler(CollOjbsSampler)
 if Samplers is None:
     Samplers = {}
     _registerAllSamplers()

@@ -42,21 +42,6 @@ class SetDataValue():
     def setDataValFactory(attr, data_class):
         return functools.partial(SetDataValue, attr, data_class)
 
-#class SetImgPath():
-#    def __init__(self, val: sdg_sampler.Sampler) -> None:
-#        self.val = val
-#    def __call__(self, obj: bpy.types.Image) -> None:
-#        s = self.val()
-#        if not isinstance(obj, list):
-#            obj.filepath = s
-#            obj.reload()
-#            return
-#        for o in obj:
-#            if not isinstance(o, list):
-#                o.filepath = s
-#                o.reload()
-#            else:
-#                self.__call__(o)
 class SetVisible():
     def __init__(self, val: sdg_sampler.Sampler) -> None:
         self.val = val
@@ -202,10 +187,9 @@ def parseNames(values: list[str]):
 
 class ObjectGroup():
     def __init__(self, exec, select, subGroup, t, includes) -> None:
-        self.exec = exec
-        self.select = select
-        self.subGroups = subGroup
-        self.objects = None
+        self.exec: list = exec
+        self.select: sdg_sampler.ObjectSampler = select
+        self.subGroups: ObjectGroup = subGroup
         self.type = t
         self.includes = includes
     
@@ -217,7 +201,7 @@ class ObjectGroup():
             child.include_group(groups)
     def from_dict(group: dict, customPropertys, t = None):
         result_exec = []
-        result_select = []
+        result_select = None
         result_subgroups = []
         #object_type = None
         actions = {}
@@ -228,7 +212,7 @@ class ObjectGroup():
             if ot in group:
                 actions = a
                 object_type = ot
-                result_select.append(sampler_from_string(group[ot], str))
+                result_select = sampler_from_string(group[ot], str)
         for k, v in group.items():
             logging.debug(f"Processing property: {k}")
             if k in actions:
@@ -253,30 +237,25 @@ class ObjectGroup():
         return ObjectGroup(result_exec, result_select, result_subgroups, object_type, includes)
     def __call__(self, objects = None) -> list[bpy.types.Object]:
         if objects is None:
-            objects = self.getBaseDict()
-        self.objects = self.getObjects(objects)
+            objects = ObjectGroup.getBaseDict(self.select.getType(self.type))
+        objects = self.select(objects)
         for ex in self.exec:
-            for obj in self.objects:
+            for obj in objects:
                 ex(obj)
         for sg in self.subGroups:
-            sg(self.objects)
-    def getObjects(self, objects):
-        objs = []
-        for selector in self.select:
-            objs = selector(objects)
-        return objs
-    def getBaseDict(self):
-        if self.type == "objects":
+            sg(objects)
+    def getBaseDict(t):
+        if t == "objects":
             return [bpy.data.objects.values()]
-        if self.type == "images":
+        if t == "images":
             return [bpy.data.images.values()]
-        if self.type == "materials":
+        if t == "materials":
             return [bpy.data.materials.values()]
-        if self.type == "cameras":
+        if t == "cameras":
             return [bpy.data.cameras.values()]
-        if self.type == "lights":
+        if t == "lights":
             return [bpy.data.lights.values()]
-        if self.type == "collections":
+        if t == "collections":
             return [bpy.data.collections.values()]
         
 
