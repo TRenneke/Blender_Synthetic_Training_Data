@@ -157,14 +157,14 @@ class SelectSampler(ObjectSampler):
 class CollectionChildrenSampler(ObjectSampler):
     def __call__(self, objects: list[list[bpy.types.Collection]]) -> list[list[bpy.types.Collection]]:
         objects = super().__call__(objects)
-        return [[coll.children.values() for coll in collGroup] for collGroup in objects]
+        lll = [[coll.children.values() for coll in collGroup] for collGroup in objects]
+        return [sum(x, []) for x in lll]
     def getType(self, t):
         return super().getType("collections")
 class CollectionObjectsSampler(ObjectSampler):
     def __call__(self, objects: list[list[bpy.types.Collection]]) -> list[list[bpy.types.Object]]:
         objects = super().__call__(objects)
         lll = [[coll.all_objects.values() for coll in collGroup] for collGroup in objects]
-        print("CollObjs", [sum(x, []) for x in lll])
         return [sum(x, []) for x in lll]
     def getType(self, t):
         return super().getType("collections")
